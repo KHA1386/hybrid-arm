@@ -5,8 +5,7 @@ from splib3.numerics.quat import Quat
 from importlib.machinery import SourceFileLoader
 import os
 
-filename = os.getcwd() + '/scripts/SceneParams.py'
-filename = filename.replace("/scripts/scripts", "/scripts")
+filename = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'SceneParams.py')
 params = SourceFileLoader('params', filename).load_module()
 
 
@@ -62,7 +61,7 @@ def addSoftCylinder(node, name, rigidNode1, rigidNode2, rigidPosition, translati
                        flipNormals=True, nbPointsOnEachCircle=8, radius=radius)
 
     cylinder = quadtopo.addChild(name)
-    cylinder.addObject('VisualStyle', displayFlags='showForceFields')
+    cylinder.addObject('VisualStyle', displayFlags='showForceFields showBehaviorModels showVisualModels')
     cylinder.addObject('ExtrudeQuadsAndGenerateHexas', name='extruder',
                        surfaceVertices=quadtopo.MechanicalObject.findData('position').getLinkPath(),
                        surfaceQuads=quadtopo.QuadSetTopologyContainer.findData('quads').getLinkPath(),
@@ -72,7 +71,7 @@ def addSoftCylinder(node, name, rigidNode1, rigidNode2, rigidPosition, translati
                        hexahedra=cylinder.extruder.findData('extrudedHexas').getLinkPath())
     cylinder.addObject('HexahedronSetTopologyModifier')
     cylinder.addObject('MechanicalObject', name='dofs')
-    cylinder.addObject('HexahedronFEMForceField', poissonRatio=params.poissonRatioRobot,
+    cylinder.addObject('ParallelHexahedronFEMForceField', poissonRatio=params.poissonRatioRobot,
                        youngModulus=params.youngModulusRobot)
     p = rigidPosition[0:3]
     q = Quat(rigidPosition[3:7])
@@ -169,7 +168,7 @@ def createScene(rootNode):
     rootNode.VisualStyle.displayFlags = 'showForceFields'
 
     rootNode.addObject('FreeMotionAnimationLoop')
-    rootNode.addObject('GenericConstraintSolver', tolerance=1e-5, maxIterations=500)
+    rootNode.addObject('BlockGaussSeidelConstraintSolver', tolerance=1e-5, maxIterations=500)
 
     simulation = rootNode.addChild('Simulation')
     simulation.addObject('EulerImplicitSolver')

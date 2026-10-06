@@ -1,8 +1,7 @@
 from importlib.machinery import SourceFileLoader
 import os
 
-filename = os.getcwd() + '/scripts/SceneParams.py'
-filename = filename.replace("/scripts/scripts", "/scripts")
+filename = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'SceneParams.py')
 params = SourceFileLoader('params', filename).load_module()
 
 
@@ -12,7 +11,7 @@ def addBones(node):
                     onlyInsideCells=True)
     bones.addObject('MechanicalObject', name='dofs', rotation=params.rotation, translation=params.translation)
     bones.addObject('UniformMass', totalMass=0.5)
-    bones.addObject('HexahedronFEMForceField', youngModulus=1e6, poissonRatio=0, method="large",
+    bones.addObject('ParallelHexahedronFEMForceField', youngModulus=1e6, poissonRatio=0, method="large",
                     updateStiffnessMatrix=False, printLog=False)
     bones.addObject('BarycentricMapping')
 
@@ -85,7 +84,7 @@ def createBody(node, params, rotation=params.rotation, translation=params.transl
     tissue.addObject('TetrahedronSetTopologyContainer', name="Container", src=bodyGrid.container.getLinkPath())
     tissue.addObject('MechanicalObject', name='dofs', template='Vec3')
     tissue.addObject('UniformMass', totalMass=3)
-    tissue.addObject('TetrahedronFEMForceField', template='Vec3', name='FEM', method='large',
+    tissue.addObject('ParallelTetrahedronFEMForceField', template='Vec3', name='FEM', method='large',
                      poissonRatio=params.poissonRatioTissueGrid, youngModulus=params.youngModulusTissueGrid,
                      drawHeterogeneousTetra=True)
     if withBodyFixed:
@@ -96,7 +95,7 @@ def createBody(node, params, rotation=params.rotation, translation=params.transl
     prostate.addObject('MechanicalObject', name='dofs', template='Vec3d', rotation=params.rotation,
                        translation=params.translation)
     prostate.addObject('UniformMass', totalMass=0.5)
-    prostate.addObject('HexahedronFEMForceField', youngModulus=params.youngModulusProstate,
+    prostate.addObject('ParallelHexahedronFEMForceField', youngModulus=params.youngModulusProstate,
                        poissonRatio=params.poissonRatioProstate, method="large", updateStiffnessMatrix=False,
                        printLog=False)
     prostate.addObject('BarycentricMapping')
@@ -137,7 +136,7 @@ def createScene(rootNode):
     addHeader(rootNode)
     rootNode.VisualStyle.displayFlags = 'showBehavior showWireframe'
 
-    tissue = createBody(rootNode, params, withSolver=True, withBodyFixed=True, withTrajectory=False)
+    tissue = createBody(rootNode, params, withSolver=True, withBodyFixed=True)
     addCollisionToBody(tissue.Prostate, params.prostateColliPath, 'ProstateCollision')
     for i in range(4):
         addLesionToBody(tissue, params.lesionsPath[i], 'Lesion' + str(i), params.rotation, params.translation)

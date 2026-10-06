@@ -7,8 +7,8 @@ from splib3.numerics import vsub
 from importlib.machinery import SourceFileLoader
 import os
 
-params = SourceFileLoader('params', os.getcwd() + '/scripts/SceneParams.py').load_module()
-
+filename = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'scripts', 'SceneParams.py')
+params = SourceFileLoader('params', filename).load_module()
 
 # Test to optimize the alignment of the probe with a target point in the prostate
 # We should be able to couple the effectors... meaning: targetpoint = probeeffectorshifted
@@ -16,19 +16,23 @@ params = SourceFileLoader('params', os.getcwd() + '/scripts/SceneParams.py').loa
 def createScene(rootNode):
 
     addHeader(rootNode)
-    rootNode.addObject('RequiredPlugin', name='ExternalPlugins',
-                       pluginName=['SoftRobots', 'SoftRobots.Inverse'])
+    rootNode.addObject('RequiredPlugin', pluginName=[
+        'SoftRobots', 
+        'SoftRobots.Inverse', 
+        'ArticulatedSystemPlugin', 
+        'Sofa.Component.Collision.Response.Contact'
+])
 
     rootNode.addObject('FreeMotionAnimationLoop')
     rootNode.addObject('QPInverseProblemSolver', printLog=0, tolerance=1e-8, maxIterations=1000, epsilon=0.0001,
                        minContactForces=0)
     rootNode.addObject('CollisionPipeline')
-    rootNode.addObject('DefaultContactManager', response='FrictionContactConstraint', responseParams='mu=0.0')
+    rootNode.addObject('CollisionResponse', response='FrictionContactConstraint', responseParams='mu=0.0')
     rootNode.addObject('BruteForceBroadPhase')
     rootNode.addObject('BVHNarrowPhase')
     rootNode.addObject('NewProximityIntersection', alarmDistance=3, contactDistance=0.1)
     rootNode.addObject('OglViewport', screenSize=[450, 450],
-                       cameraPosition=[-55, -6, 31],
+                       cameraPosition=[-60, -6, 31],
                        cameraOrientation=[0.0218681, -0.724597, 0.024092, 0.688405], useFBO=False)
 
     simulation = rootNode.addChild('Modelling')
@@ -62,7 +66,7 @@ def createScene(rootNode):
 
     # Target
     target = softPartExtremity.addChild('Target')
-    target.addObject('MechanicalObject', name='dofs', template='Vec3', position=[230, 0, 0], showObject=False,
+    target.addObject('MechanicalObject', name='dofs', template='Vec3', position=[215, 0, 0], showObject=False,
                      showObjectScale=2, drawMode=1)
     target.addObject('RigidMapping', name='mapping', index=0)
 

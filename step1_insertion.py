@@ -1,5 +1,7 @@
 from splib3.numerics import Quat, vsub, vadd
 import numpy as np
+import stlib3
+from stlib3.scene import MainHeader
 
 from scripts.Camera import createCamera
 from scripts.NeedleProbe import createNeedleProbe, addProbe
@@ -7,11 +9,12 @@ from scripts.Robot import createRobot
 from scripts.RobotGUI import RobotGUI
 from scripts.Body import createBody, addCollisionToBody, addLesionToBody
 from scripts.Header import addHeader
-
 from importlib.machinery import SourceFileLoader
 import os
+import Sofa.Core
 
-params = SourceFileLoader('params', os.getcwd() + '/scripts/SceneParams.py').load_module()
+filename = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'scripts', 'SceneParams.py')
+params = SourceFileLoader('params', filename).load_module()
 
 # Simulation Options
 ROBOT_CONTROL = True
@@ -30,18 +33,47 @@ else:
     needleMecaPosition = [0, -70, -220]
     needleMecaOrientation = [-0.7, -0.1, -0.7, -0.1]
 
+class KeyboardArmController(Sofa.Core.Controller):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.target = kwargs.get("target")
+
+    def onKeypressedEvent(self, e):
+        key = e['key']
+        pos = list(self.target.dofs.position.value[0])
+        step = 5.0
+
+        # pos[0]: X, pos[1]: Y, pos[2]: Z (4 giá trị phía sau là Quaternion xoay, giữ nguyên)
+        if key == 'Up':          # Mũi tên lên: Di chuyển Y+
+            pos[1] += step
+        elif key == 'Down':      # Mũi tên xuống: Di chuyển Y-
+            pos[1] -= step
+        elif key == 'Right':     # Mũi tên phải: Di chuyển X+
+            pos[0] += step
+        elif key == 'Left':      # Mũi tên trái: Di chuyển X-
+            pos[0] -= step
+        elif key == 'I':         # Phím I: Tiến sâu trục Z
+            pos[2] += step
+        elif key == 'K':         # Phím K: Lùi trục Z
+            pos[2] -= step
+
+        self.target.dofs.position = [pos]
+
 
 def createScene(rootNode):
     addHeader(rootNode)
+    # Hệ màu RGBA, giá trị chạy từ 0.0 đến 1.0
+    rootNode.addObject('RequiredPlugin', pluginName='ArticulatedSystemPlugin')
+    rootNode.addObject('RequiredPlugin', name='Sofa.Component.Collision.Response.Contact')
     rootNode.addObject('RequiredPlugin', name='ExternalPlugins',
                        pluginName=['BeamAdapter', 'SoftRobots'])
     if INVERSE:
         rootNode.addObject('RequiredPlugin', name='SoftRobots.Inverse')
 
     rootNode.addObject('FreeMotionAnimationLoop')
-    rootNode.addObject('QPInverseProblemSolver' if INVERSE else 'GenericConstraintSolver', printLog=0, tolerance=1e-8,
+    rootNode.addObject('QPInverseProblemSolver' if INVERSE else 'BlockGaussSeidelConstraintSolver', printLog=0, tolerance=1e-8,
                        maxIterations=1000, epsilon=0.001)
-    rootNode.addObject('DefaultContactManager', response='FrictionContactConstraint', responseParams='mu=0.0')
+    rootNode.addObject('CollisionResponse', response='FrictionContactConstraint', responseParams='mu=0.0')
     rootNode.addObject('CollisionPipeline')
     rootNode.addObject('BruteForceBroadPhase')
     rootNode.addObject('BVHNarrowPhase')
@@ -82,11 +114,11 @@ def createScene(rootNode):
             q = Quat(-0.5, -0.5, -0.3, 0.3)
             q.normalize()
             rootNode.EffectorTarget.dofs.position = [[10.743, -29.625, 17] + list(q)]
-        for i in range(3):
-            needleProbe.addObject('RestShapeSpringsForceField', template='Rigid3', name='attach' + str(i), points=i,
-                                  external_points=0,
-                                  external_rest_shape=robot.SoftExtremity.dofs.getLinkPath(),
-                                  stiffness=1e6, angularStiffness=1e12)
+        needleProbe.addObject('RestShapeSpringsForceField', template='Rigid3', name='attachAll',
+                      points=[0, 1, 2],
+                      external_points=[0, 0, 0],
+                      external_rest_shape=robot.SoftExtremity.dofs.getLinkPath(),
+                      stiffness=1e6, angularStiffness=1e12)
         needleProbe.EulerImplicitSolver.rayleighMass = 0.0
         needleProbe.EulerImplicitSolver.rayleighStiffness = 0.0
         if not INVERSE:
@@ -113,5 +145,8 @@ def createScene(rootNode):
     addCollisionToBody(tissue, params.prostateColliPath, 'ProstateCollision', params.rotation, params.translation)
     for i in range(4):
         addLesionToBody(tissue, params.lesionsPath[i], 'Lesion' + str(i), params.rotation, params.translation)
-
+    if INVERSE:
+        rootNode.addObject(KeyboardArmController(target=rootNode.EffectorTarget))
     return rootNode
+
+

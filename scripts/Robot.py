@@ -1,16 +1,34 @@
-from importlib.machinery import SourceFileLoader
 import os
+import sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from math import sin, cos, pi
+import importlib.util
 
 import Sofa
 import Sofa.Core
 from scripts.RobotGUI import RobotGUI
 from scripts.RobotSoftPart import addSoftPart
-from splib3.numerics.quat import Quat
 
-filename = os.getcwd() + '/scripts/SceneParams.py'
-filename = filename.replace("/scripts/scripts", "/scripts")
-params = SourceFileLoader('params', filename).load_module()
+# Tự tạo hoặc import Quat an toàn
+try:
+    from splib.numerics import Quat
+except ImportError:
+    try:
+        from splib3.numerics.quat import Quat
+    except ImportError:
+        class Quat(list):
+            def __init__(self, *args):
+                if len(args) == 1 and isinstance(args[0], (list, tuple)):
+                    super().__init__(args[0])
+                else:
+                    super().__init__(args)
+            def rotateFromQuat(self, q):
+                pass
+
+filename = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'SceneParams.py')
+spec = importlib.util.spec_from_file_location("params", filename)
+params = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(params)
 
 path = os.path.dirname(os.path.abspath(__file__)) + '/../data/Robot/Parts/'
 basePath = path + 'RobotBase.stl'
@@ -116,17 +134,16 @@ def createRobot(node, name='Robot', translation=[0, 0, 0], initConfiguration=Non
         robot.addObject('SparseLDLSolver', template='CompressedRowSparseMatrixd')
         robot.addObject('GenericConstraintCorrection')
 
-    robot.addData('angles', initAngles, None, 'angle of articulations in radian', '', 'vector<float>')
-    robot.addData('packetOut', [0, 0, 0, 0, 0, 0], None, 'angle of articulations in degree', '',
-                  'vector<int>')  # will be filled in RobotGUI.py
+    robot.addData(name='angles', value=initAngles, type='vector<float>', help='angle of articulations in radian')
+    robot.addData(name='packetOut', value=[0, 0, 0, 0, 0, 0], type='vector<int>', help='angle of articulations in degree')
     for i in range(1, 7):
-        robot.addData('minAngles' + str(i), -pi, None, 'min angle of part' + str(i), '', 'float')
-        robot.addData('maxAngles' + str(i), pi, None, 'max angle of part' + str(i), '', 'float')
+        robot.addData(name='minAngles' + str(i), value=-pi, type='float', help='min angle of part' + str(i))
+        robot.addData(name='maxAngles' + str(i), value=pi, type='float', help='max angle of part' + str(i))
 
     # Articulations node
     articulations = robot.addChild('Articulations')
     articulations.addObject('MechanicalObject', name='dofs', template='Vec1',
-                            rest_position=robot.getData('angles').getLinkPath(), position=initAngles)
+                            rest_position=robot.findData('angles').getLinkPath(), position=initAngles)
     articulations.addObject('ArticulatedHierarchyContainer')
     articulations.addObject('UniformMass', totalMass=20)
 
@@ -163,15 +180,13 @@ def createRobot(node, name='Robot', translation=[0, 0, 0], initConfiguration=Non
         softExtremity.addObject('MechanicalObject', template='Rigid3', name='dofs', showObject=True, showObjectScale=20)
 
         robotExtremityPosition = rigid.dofs.position[
-            6] if initEffectorPosition is None else initEffectorPosition  # Should always be rigid.dofs.position[6] but it is not properly initialized :(
+            6] if initEffectorPosition is None else initEffectorPosition
         q = Quat(robotExtremityPosition[3:7])
         q.rotateFromQuat(Quat(0., 0., sin(-pi / 4), cos(-pi / 4)))
         robotExtremityPosition[3:7] = list(q)
         cylinder = addSoftPart(robot, rigid, softExtremity, robotExtremityPosition, translation, 'SoftCylinder')
         rigid.RigidifiedNodes1.RigidMapping.index = 6
         if initEffectorPosition is not None:
-            # A trick to initialize the configuration of the robot
-            # Without that we would a problem between the robot and the soft part
             node.addObject(MappingController(node=rigid.RigidifiedNodes1, mapping=rigid.RigidifiedNodes1.RigidMapping))
 
     if inverse:
@@ -183,10 +198,9 @@ def createRobot(node, name='Robot', translation=[0, 0, 0], initConfiguration=Non
         target.addObject('MechanicalObject', name='dofs', template='Rigid3',
                          position=targetPosition,
                          showObject=True, drawMode=0, showObjectScale=10)
-        target.addObject('UncoupledConstraintCorrection')
+        target.addObject('UncoupledConstraintCorrection', defaultCompliance=[1e-5]*7)
 
         if withEffector:
-            # Effector
             index = 0 if withSoftPart else 6
             effector = softExtremity if withSoftPart else rigid
             effector.addObject('PositionEffector', name='effector', template='Rigid3', indices=index,
@@ -205,29 +219,28 @@ def createRobot(node, name='Robot', translation=[0, 0, 0], initConfiguration=Non
 
 # Test/example scene
 def createScene(rootNode):
-    INVERSE = False  # Inverse kinematics problem solving (effector control). If True, INTERFACE and EXTERNALCONTROL will be ignored.
-    INTERFACE = not INVERSE  # User interface to control the robot
-    WITHSOFTPART = False  # Add soft part between the robot and the probe
-    COMMUNICATION = False  # Send/receive joints' value
-    EXTERNALCONTROL = False  # Use values received from an external software to control the robot (requires COMMUNICATION=True)
+    INVERSE = False
+    INTERFACE = not INVERSE
+    WITHSOFTPART = False
+    COMMUNICATION = False
+    EXTERNALCONTROL = False
 
-    from Header import addHeader
+    try:
+        from scripts.Header import addHeader
+    except ImportError:
+        from Header import addHeader
     addHeader(rootNode)
+    
     rootNode.addObject('RequiredPlugin', name='ExternalPlugins',
                        pluginName=['SoftRobots', 'SoftRobots.Inverse' if INVERSE else ''])
     rootNode.addObject('FreeMotionAnimationLoop')
     if INVERSE:
         rootNode.addObject('QPInverseProblemSolver', maxIterations=1000, tolerance=1e-8, epsilon=0.001, printLog=False)
     else:
-        rootNode.addObject('GenericConstraintSolver', maxIterations=1000, tolerance=1e-8, printLog=False)
-
+        rootNode.addObject('BlockGaussSeidelConstraintSolver', maxIterations=1000, tolerance=1e-8, printLog=False)
+        
     simulation = rootNode.addChild('Simulation')
 
-    # Initial configuration
-    # initAngles=[0,0,0,0,0,0]
-    # initConfiguration = None
-
-    # Change initial configuration
     initAngles = params.initAngles
     initConfiguration = [initAngles, params.initEffectorPosition + params.initEffectorOrientation]
 
@@ -237,24 +250,12 @@ def createScene(rootNode):
         robot.addObject(RobotGUI(robot=robot, initAngles=initAngles))
 
     if COMMUNICATION:
-        # Option1: Communication through usb
-        # rootNode.addObject('SerialPortBridgeGeneric', name='serial', port='/dev/ttyACM0',
-        #                         baudRate=115200, size=5, listening=True, header=255,
-        #                         packetOut=robot.findData('packetOut').getLinkPath()) # filled in RobotGUI.py
-
-        # Option2: Communication using sockets
-        # Requirements: SoftRobots/component/controller/README.md CommunicationController part
-
-        # Send joints' value
         rootNode.addObject('CommunicationController', name='toExtSoftware', listening=True, job='sender', port='5558',
                            nbDataField=1, pattern=0, template='Vec1',
                            data1=robot.findData('angles').getLinkPath())
-        # Receive joints' value
         rootNode.addObject('CommunicationController', name='fromExtSoftware', listening=True, job='receiver',
                            port='5559', nbDataField=1, pattern=0, template='Vec1',
                            data1=[0., 0., 0., 0., 0., 0.])
-        # The vector we receive from the extertnal software should be a string,
-        # containing the size of the vector and then the joints' value (e.g. "6 0. 0. 0. 0. 0. 0.")
 
     if EXTERNALCONTROL and COMMUNICATION and not INVERSE:
         robot.findData('angles').value = rootNode.fromExtSoftware.findData('data1').getLinkPath()

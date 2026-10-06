@@ -45,7 +45,7 @@ youngModulusTissueGrid = 5
 poissonRatioTissueGrid = 0
 youngModulusProstate = 1
 poissonRatioProstate = 0
-youngModulusRobot = 18000
+youngModulusRobot = 5000
 poissonRatioRobot = 0.45
 
 # Step 3 : Here you can move the tissues in the scene

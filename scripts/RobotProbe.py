@@ -4,8 +4,8 @@ from NeedleProbe import createNeedleProbe, addProbe
 from importlib.machinery import SourceFileLoader
 import os
 
-params = SourceFileLoader('params', os.getcwd() + '/SceneParams.py').load_module()
-
+filename = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'SceneParams.py')
+params = SourceFileLoader('params', filename).load_module()
 
 # Test/example scene
 def createScene(rootNode):
@@ -19,7 +19,7 @@ def createScene(rootNode):
                        pluginName=['SoftRobots', 'BeamAdapter',
                                    'SoftRobots.Inverse' if INVERSE else ''])
     rootNode.addObject('FreeMotionAnimationLoop')
-    rootNode.addObject('QPInverseProblemSolver' if INVERSE else 'GenericConstraintSolver', name='constraintsolver',
+    rootNode.addObject('QPInverseProblemSolver' if INVERSE else 'BlockGaussSeidelConstraintSolver', name='constraintsolver',
                        maxIterations=250, tolerance=1e-5, epsilon=1e-2)
 
     simulation = rootNode.addChild('Simulation')

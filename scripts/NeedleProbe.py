@@ -104,7 +104,7 @@ def createScene(rootNode):
     rootNode.addObject('RequiredPlugin', name='ExternalPlugins',
                        pluginName=['SoftRobots', 'BeamAdapter'])
     rootNode.addObject('FreeMotionAnimationLoop')
-    rootNode.addObject('GenericConstraintSolver', maxIterations=250, tolerance=1e-5)
+    rootNode.addObject('BlockGaussSeidelConstraintSolver', maxIterations=250, tolerance=1e-5)
 
     simulation = rootNode.addChild('Simulation')
 

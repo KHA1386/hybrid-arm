@@ -6,7 +6,6 @@ import tkinter as tkinter
 import threading
 import numpy
 
-
 class App(threading.Thread):
 
     def __init__(self, robot, initAngles=[0., 0., 0., 0., 0., 0.]):
@@ -20,6 +19,15 @@ class App(threading.Thread):
         self.angle4Init = initAngles[3]
         self.angle5Init = initAngles[4]
         self.angle6Init = initAngles[5]
+
+        self.joint_names = [
+        "Base", 
+        "Shoulder", 
+        "Elbow", 
+        "Wrist 1", 
+        "Wrist 2", 
+        "Wrist 3"
+    ]
 
     def reset(self):
         self.angle1.set(self.angle1Init)
@@ -35,8 +43,8 @@ class App(threading.Thread):
     def run(self):
         self.root = tkinter.Tk()
         self.root.protocol("WM_DELETE_WINDOW", self.callback)
-
-        tkinter.Label(self.root, text="Robot Controller Interface").grid(row=0, columnspan=6)
+        self.root.title("Robot Controller Interface")
+        tkinter.Label(self.root, text="Robot Controller Interface", font=("Arial", 12, "bold")).grid(row=0, columnspan=6, pady = 10)
 
         self.angle1 = tkinter.DoubleVar()
         self.angle2 = tkinter.DoubleVar()
@@ -45,24 +53,29 @@ class App(threading.Thread):
         self.angle5 = tkinter.DoubleVar()
         self.angle6 = tkinter.DoubleVar()
 
+        # Tạo vòng lặp để bố trí Label tên khớp và Scale tương ứng theo cột
+        for i in range(6):
+            # Nhãn tên khớp đặt ở hàng 1
+            tkinter.Label(self.root, text=self.joint_names[i], font=("Arial", 9, "bold")).grid(row=1, column=i, padx=2)
+
         tkinter.Scale(self.root, variable=self.angle1, resolution=0.001, length=400,
                       from_=self.robot.getData('minAngles1').value, to=self.robot.getData('maxAngles1').value,
-                      orient=tkinter.VERTICAL).grid(row=1, column=0)
+                      orient=tkinter.VERTICAL).grid(row=2, column=0, padx=5, pady=5)
         tkinter.Scale(self.root, variable=self.angle2, resolution=0.001, length=400,
                       from_=self.robot.getData('minAngles2').value, to=self.robot.getData('maxAngles2').value,
-                      orient=tkinter.VERTICAL).grid(row=1, column=1)
+                      orient=tkinter.VERTICAL).grid(row=2, column=1, padx=5, pady=5)
         tkinter.Scale(self.root, variable=self.angle3, resolution=0.001, length=400,
                       from_=self.robot.getData('minAngles3').value, to=self.robot.getData('maxAngles3').value,
-                      orient=tkinter.VERTICAL).grid(row=1, column=2)
+                      orient=tkinter.VERTICAL).grid(row=2, column=2, padx=5, pady=5)
         tkinter.Scale(self.root, variable=self.angle4, resolution=0.001, length=400,
                       from_=self.robot.getData('minAngles4').value, to=self.robot.getData('maxAngles4').value,
-                      orient=tkinter.VERTICAL).grid(row=1, column=3)
+                      orient=tkinter.VERTICAL).grid(row=2, column=3, padx=5, pady=5)
         tkinter.Scale(self.root, variable=self.angle5, resolution=0.001, length=400,
                       from_=self.robot.getData('minAngles5').value, to=self.robot.getData('maxAngles5').value,
-                      orient=tkinter.VERTICAL).grid(row=1, column=4)
+                      orient=tkinter.VERTICAL).grid(row=2, column=4, padx=5, pady=5)
         tkinter.Scale(self.root, variable=self.angle6, resolution=0.001, length=400,
                       from_=self.robot.getData('minAngles6').value, to=self.robot.getData('maxAngles6').value,
-                      orient=tkinter.VERTICAL).grid(row=1, column=5)
+                      orient=tkinter.VERTICAL).grid(row=2, column=5, padx=5, pady=5)
 
         self.root.mainloop()
 

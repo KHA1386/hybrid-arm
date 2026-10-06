@@ -2,7 +2,7 @@ def addHeader(rootNode):
     rootNode.addObject('VisualStyle', displayFlags='showVisualModels hideBehaviorModels hideForceFields hideWireframe')
 
     rootNode.addObject('DefaultVisualManagerLoop')
-    rootNode.addObject('BackgroundSetting', color=[1, 1, 1, 1])
+    rootNode.addObject('BackgroundSetting', color=[0.53, 0.81, 0.92, 1])
     rootNode.findData('dt').value = 0.02
     rootNode.gravity = [0, -9810, 0]
 
